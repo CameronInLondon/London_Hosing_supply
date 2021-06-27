@@ -1,0 +1,379 @@
+IF OBJECT_ID('TEMPDB..#TEMP_FILES') IS NOT NULL DROP TABLE #TEMP_FILES
+CREATE TABLE #TEMP_FILES
+(
+FileName VARCHAR(MAX),
+DEPTH VARCHAR(MAX),
+[FILE] VARCHAR(MAX)
+)
+
+-- CREATE A TABLE FOR LOGGING PROCESSED RECORDS.
+IF OBJECT_ID('dbo.PreviouslyProcessed') IS NOT NULL DROP TABLE PreviouslyProcessed
+CREATE TABLE PreviouslyProcessed
+(
+FileName VARCHAR(MAX)
+)
+
+
+
+INSERT INTO #TEMP_FILES
+EXEC MASTER.dbo.xp_dirtree 'C:\Data\',0,1  
+
+SET LANGUAGE british  -------- Need to UK dates
+
+--------------------------- Make a TEMP staging table --------------------------------
+
+IF OBJECT_ID('TEMPDB..#TEMP_RESULTS') IS NOT NULL DROP TABLE #TEMP_RESULTS
+CREATE TABLE #TEMP_RESULTS
+(
+LMK_KEY							VARCHAR (MAX),
+ADDRESS1						VARCHAR (Max),
+ADDRESS2						VARCHAR (Max),
+ADDRESS3						VARCHAR (Max),
+POSTCODE						VARCHAR (MAX),
+BUILDING_REFERENCE_NUMBER		VARCHAR (MAX),
+CURRENT_ENERGY_RATING			VARCHAR (MAX),
+POTENTIAL_ENERGY_RATING			VARCHAR (MAX), 
+CURRENT_ENERGY_EFFICIENCY		VARCHAR (MAX),
+POTENTIAL_ENERGY_EFFICIENCY		VARCHAR (MAX),
+PROPERTY_TYPE					VARCHAR (MAX),
+BUILT_FORM						VARCHAR (MAX),
+INSPECTION_DATE					DATE,				-- SET LANGUAGE british
+LOCAL_AUTHORITY					VARCHAR (MAX),
+CONSTITUENCY					VARCHAR (MAX),
+COUNTY							VARCHAR (MAX),
+LODGEMENT_DATE					DATE,  
+TRANSACTION_TYPE				VARCHAR (MAX),
+ENVIRONMENT_IMPACT_CURRENT		VARCHAR (MAX),
+ENVIRONMENT_IMPACT_POTENTIAL	VARCHAR (MAX),
+ENERGY_CONSUMPTION_CURRENT		VARCHAR (MAX),
+ENERGY_CONSUMPTION_POTENTIAL	VARCHAR (MAX),
+CO2_EMISSIONS_CURRENT			VARCHAR (MAX),
+CO2_EMISS_CURR_PER_FLOOR_AREA	VARCHAR (MAX),
+CO2_EMISSIONS_POTENTIAL			VARCHAR (MAX),
+LIGHTING_COST_CURRENT			VARCHAR (MAX),
+LIGHTING_COST_POTENTIAL			VARCHAR (MAX),
+HEATING_COST_CURRENT			VARCHAR (MAX),
+HEATING_COST_POTENTIAL			VARCHAR (MAX),
+HOT_WATER_COST_CURRENT			VARCHAR (MAX),
+HOT_WATER_COST_POTENTIAL		VARCHAR (MAX),
+TOTAL_FLOOR_AREA				VARCHAR (MAX),
+ENERGY_TARIFF					VARCHAR (MAX),
+MAINS_GAS_FLAG					VARCHAR (MAX),
+FLOOR_LEVEL						VARCHAR (MAX),
+FLAT_TOP_STOREY					VARCHAR (MAX),
+FLAT_STOREY_COUNT				VARCHAR (MAX),
+MAIN_HEATING_CONTROLS			VARCHAR (MAX),
+MULTI_GLAZE_PROPORTION			VARCHAR (MAX),
+GLAZED_TYPE						VARCHAR (MAX),
+GLAZED_AREA						VARCHAR (MAX),
+EXTENSION_COUNT					VARCHAR (MAX),
+NUMBER_HABITABLE_ROOMS			VARCHAR (MAX),
+NUMBER_HEATED_ROOMS				VARCHAR (MAX),
+LOW_ENERGY_LIGHTING				VARCHAR (MAX),
+NUMBER_OPEN_FIREPLACES			VARCHAR (MAX),
+HOTWATER_DESCRIPTION			VARCHAR (MAX),
+HOT_WATER_ENERGY_EFF			VARCHAR (MAX),
+HOT_WATER_ENV_EFF				VARCHAR (MAX),
+FLOOR_DESCRIPTION				VARCHAR (MAX),  --- some starange character might be an issue if not in the character sets. 
+FLOOR_ENERGY_EFF				VARCHAR (MAX),
+FLOOR_ENV_EFF					VARCHAR (MAX),
+WINDOWS_DESCRIPTION				VARCHAR (MAX),
+WINDOWS_ENERGY_EFF				VARCHAR (MAX),
+WINDOWS_ENV_EFF					VARCHAR (MAX),
+WALLS_DESCRIPTION				VARCHAR (MAX),    --- some starange character might be an issue if not in the character sets. 
+WALLS_ENERGY_EFF				VARCHAR (MAX),
+WALLS_ENV_EFF					VARCHAR (MAX),
+SECONDHEAT_DESCRIPTION			VARCHAR (MAX),
+SHEATING_ENERGY_EFF				VARCHAR (MAX),
+SHEATING_ENV_EFF				VARCHAR (MAX),
+ROOF_DESCRIPTION				VARCHAR (MAX),
+ROOF_ENERGY_EFF					VARCHAR (MAX),
+ROOF_ENV_EFF					VARCHAR (MAX),
+MAINHEAT_DESCRIPTION			VARCHAR (MAX),
+MAINHEAT_ENERGY_EFF				VARCHAR (MAX),
+MAINHEAT_ENV_EFF				VARCHAR (MAX),
+MAINHEATCONT_DESCRIPTION		VARCHAR (MAX),
+MAINHEATC_ENERGY_EFF			VARCHAR (MAX),
+MAINHEATC_ENV_EFF				VARCHAR (MAX),
+LIGHTING_DESCRIPTION			VARCHAR (MAX),
+LIGHTING_ENERGY_EFF				VARCHAR (MAX),
+LIGHTING_ENV_EFF				VARCHAR (MAX),
+MAIN_FUEL						VARCHAR (MAX),
+WIND_TURBINE_COUNT				VARCHAR (MAX),
+HEAT_LOSS_CORRIDOOR				VARCHAR (MAX),
+UNHEATED_CORRIDOR_LENGTH		VARCHAR (MAX),
+FLOOR_HEIGHT					VARCHAR (MAX),
+PHOTO_SUPPLY					VARCHAR (MAX),
+SOLAR_WATER_HEATING_FLAG		VARCHAR (MAX),
+MECHANICAL_VENTILATION			VARCHAR (MAX),
+ADDRESS							VARCHAR (MAX),
+LOCAL_AUTHORITY_LABEL			VARCHAR (MAX),
+CONSTITUENCY_LABEL				VARCHAR (MAX),
+POSTTOWN						VARCHAR (MAX),
+CONSTRUCTION_AGE_BAND			VARCHAR (MAX),
+LODGEMENT_DATETIME				DATETIME,
+TENURE							VARCHAR (MAX),
+FIXED_LIGHTING_OUTLETS_COUNT	VARCHAR (MAX),
+LOW_ENERGY_FIXED_LIGHT_COUNT	VARCHAR (MAX) 
+)
+
+
+DECLARE @FILENAME VARCHAR(MAX),@SQL VARCHAR(MAX)
+
+-------------------------- bulk insert ----------------------------------
+WHILE EXISTS(SELECT * FROM #TEMP_FILES)
+BEGIN
+	
+	--SET @FILENAME = (SELECT TOP 1 FileName FROM #TEMP_FILES WHERE FILENAME NOT IN(SELECT FILENAME FROM PreviouslyProcessed))
+	SET @FILENAME = (SELECT TOP 1 FileName FROM #TEMP_FILES)
+	SET @SQL = 'BULK INSERT  #TEMP_RESULTS
+	FROM ''C:\Data\' + @FILENAME +'''
+	WITH (FIRSTROW = 2, FIELDTERMINATOR = '','', ROWTERMINATOR = ''0x0a'');'    ---- '0x0a' is an important hack 
+	PRINT @SQL
+	EXEC(@SQL)
+	DELETE FROM #TEMP_FILES WHERE FileName = @FILENAME
+	
+END
+
+
+
+----ORIGINAL DATA TYPES
+SELECT * FROM #TEMP_RESULTS
+
+
+-----------  ROW COUNT
+SELECT COUNT([ADDRESS1]) AS 'Total Count'
+FROM #TEMP_RESULTS
+------ COUNT for Barking, Barnet and London is 191257
+------ COUNT for 7 tables down to Camden is 565791
+------ COUNT for 11 tables down to Greenwich is 1003273
+------ COUNT for 18 tables down to Honslow is 1583250
+------ COUNT for 26 tables down to redbridge is 2305535
+------ COUNT for all 33 tables is 3,034,998??? or 3,035,001 (extra three rows?)
+
+
+
+----------------------------------------------------------------------------------------------
+------------------- Check max length of the fields to be used --------------------------------
+
+SELECT MAX(LEN(LMK_KEY)) as LMK_KEY 							FROM #TEMP_RESULTS;
+SELECT MAX(LEN(ADDRESS1)) as ADDRESS1  							FROM #TEMP_RESULTS;
+SELECT MAX(LEN(ADDRESS2)) as ADDRESS2 							FROM #TEMP_RESULTS;
+SELECT MAX(LEN(ADDRESS3)) as ADDRESS3 							FROM #TEMP_RESULTS;
+SELECT MAX(LEN(POSTCODE)) as POSTCODE 							FROM #TEMP_RESULTS;
+SELECT MAX(LEN(PROPERTY_TYPE)) as PROPERTY_TYPE					FROM #TEMP_RESULTS;
+SELECT MAX(LEN(INSPECTION_DATE)) as INSPECTION_DATE				FROM #TEMP_RESULTS;
+SELECT MAX(LEN(LOCAL_AUTHORITY)) as LOCAL_AUTHORITY				FROM #TEMP_RESULTS;
+SELECT MAX(LEN(CONSTITUENCY)) as CONSTITUENCY 					FROM #TEMP_RESULTS;
+SELECT MAX(LEN(COUNTY)) as COUNTY  								FROM #TEMP_RESULTS;
+SELECT MAX(LEN(TRANSACTION_TYPE)) as TRANSACTION_TYPE			FROM #TEMP_RESULTS;
+SELECT MAX(LEN(LODGEMENT_DATE)) as LODGEMENT_DATE				FROM #TEMP_RESULTS;
+SELECT MAX(LEN(LOCAL_AUTHORITY_LABEL)) as LOCAL_AUTHORITY_LABEL FROM #TEMP_RESULTS;
+SELECT MAX(LEN(POSTTOWN)) as POSTTOWN							FROM #TEMP_RESULTS;
+SELECT MAX(LEN(CONSTRUCTION_AGE_BAND)) as CONSTRUCTION_AGE_BAND FROM #TEMP_RESULTS;
+SELECT MAX(LEN(TENURE)) as TENURE								FROM #TEMP_RESULTS;
+
+
+
+
+
+----------------------------------------------------------------------------------------------
+------------------------- Create new new table for EPC data ----------------------------------
+
+IF OBJECT_ID('dbo.EnergyPerformanceCertificate ') IS NOT NULL DROP TABLE EnergyPerformanceCertificate 
+CREATE TABLE dbo.EnergyPerformanceCertificate  
+(	
+	LMK_KEY VARCHAR					(20) NOT NULL,
+	ADDRESS1 VARCHAR				(100) NULL,
+	ADDRESS2 VARCHAR				(100) NULL,
+	ADDRESS3 VARCHAR				(100) NULL,
+	POSTCODE VARCHAR				(20) NULL,
+	PROPERTY_TYPE VARCHAR			(40) NULL,
+	INSPECTION_DATE DATE			,
+	LOCAL_AUTHORITY VARCHAR			(30) NULL,
+	CONSTITUENCY VARCHAR			(30) NULL,
+	COUNTY VARCHAR					(100) NULL,
+	TRANSACTION_TYPE VARCHAR		(250) NULL,
+	LODGEMENT_DATE DATE				,
+	LOCAL_AUTHORITY_LABEL VARCHAR	(80) NULL,
+	POSTTOWN VARCHAR				(60) NULL,
+	CONSTRUCTION_AGE_BAND VARCHAR	(120) NULL,
+	TENURE VARCHAR					(40) NULL
+);  
+GO  
+
+
+ 
+
+-------------- copy selected fields into new table ------------------------------------------
+INSERT INTO dbo.EnergyPerformanceCertificate  
+SELECT	LMK_KEY,
+		ADDRESS1,
+		ADDRESS2,
+		ADDRESS3,
+		POSTCODE,
+		PROPERTY_TYPE,
+		INSPECTION_DATE, 
+		LOCAL_AUTHORITY,
+		CONSTITUENCY,
+		COUNTY,
+		TRANSACTION_TYPE,
+		LODGEMENT_DATE,
+		LOCAL_AUTHORITY_LABEL,
+		POSTTOWN,
+		CONSTRUCTION_AGE_BAND,
+		TENURE
+FROM #TEMP_RESULTS  
+GO
+
+
+
+-- Add ID column using identity(1,1) to create the index
+Alter Table dbo.EnergyPerformanceCertificate 
+Add Id Int Identity(1000, 1)					-- IDENTITY [ (seed , increment) ]
+Go
+
+
+
+
+------- Add data to new postcode SECTOR column ---------
+ALTER TABLE dbo.EnergyPerformanceCertificate DROP COLUMN Postcode_Sector
+ALTER TABLE EnergyPerformanceCertificate
+ADD Postcode_Sector varchar(20);
+
+
+-- Extract Postcode Sector and save it to Postcode_Sector column
+UPDATE EnergyPerformanceCertificate
+SET [Postcode_Sector] = SUBSTRING
+		(POSTCODE,
+		0,
+		charindex(' ',POSTCODE)+2
+		) 
+FROM EnergyPerformanceCertificate;
+
+
+
+------- Add data to new postcode AREA column
+ALTER TABLE dbo.EnergyPerformanceCertificate DROP COLUMN Postcode_Area
+ALTER TABLE EnergyPerformanceCertificate
+ADD Postcode_Area varchar(20);
+
+
+-- Extract Postcode Area and save it to Postcode_AREA column
+UPDATE EnergyPerformanceCertificate
+SET Postcode_Area =
+    RTRIM(LEFT(POSTCODE, PATINDEX('%[0-9]%', POSTCODE) - 1))
+From EnergyPerformanceCertificate
+
+
+
+
+
+---------------------------------------------------------------------------------------------
+--------------------- Check data types -----------------------------------------------------
+
+SELECT COLUMN_NAME,
+       DATA_TYPE,
+       IS_NULLABLE,
+       CHARACTER_MAXIMUM_LENGTH,
+       NUMERIC_PRECISION,
+       NUMERIC_SCALE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME='EnergyPerformanceCertificate';
+
+
+
+
+
+---------------------------------------------------------------------------------------------
+--------------------- Clean up --------------------------------------------------------------
+
+-- TODO
+
+
+
+
+
+
+------------------------------ Geographies Data----------------------------------------------
+------------------ import  PCD_OA_LSOA_MSOA_LAD_AUG19_UK_LU.csv -----------------------------
+
+
+USE [London housing supply]
+GO
+
+IF OBJECT_ID('uk_geographies') IS NOT NULL
+	DROP TABLE uk_geographies
+GO
+
+
+CREATE TABLE uk_geographies (
+	pcd7		VARCHAR (50),
+	pcd8		VARCHAR (50),
+	pcds		VARCHAR (50),
+	dointr		INT,
+	doterm		INT,
+	usertype	INT,
+	oa11cd		VARCHAR (50),  -- Output Areas (OA)						- code
+	lsoa11cd	VARCHAR (50),  -- Lower Layer Super Output Areas (LSOA) - code
+	msoa11cd	VARCHAR (50),  -- Middle Layer Super Output Areas (MSOA)- code
+	ladcd		VARCHAR (50),  -- local authority districts (LAD)		- code
+	lsoa11nm	VARCHAR (150), -- Lower Layer Super Output Areas (LSOA)	- name
+	msoa11nm	VARCHAR (150), -- Middle Layer Super Output Areas (MSOA)- name
+	ladnm		VARCHAR (150), -- local authority districts (LAD)		- name
+	ladnmw		VARCHAR (100)  -- local authority districts (LAD)		- name
+)
+GO
+
+--- NOTE UK geographies hierarchy  Country >> Local Authority >> MSOA >> LSOA >> Output Area
+--- Average population   (ward 13,078) (MSOA 8,346) (LSOA 1,722)
+
+
+-- Import single file - NOTE bulk import only works for .csv
+BULK INSERT uk_geographies
+FROM 'C:\data\PCD_OA_LSOA_MSOA_LAD_AUG19_UK_LU.csv'
+WITH(
+	FORMAT = 'CSV',
+	FIRSTROW = 2
+)
+GO
+
+-- Add ID column using identity(1,1) to create the index. 
+-- NOTE -- Has to be done after bring in the data.
+Alter Table certificates_table
+Add Id Int Identity(1, 1)
+Go
+
+-- check all from new table
+SELECT * FROM uk_geographies
+
+---  (2,632,804 rows affected)
+SELECT COUNT(pcd7)
+FROM [dbo].uk_geographies
+
+
+
+
+
+
+----------------------------- Population Data -----------------------------------------------
+-------------- imported via wizard
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------
+------------------------------ JOIN three tables and create view --------------------------------------
+
+
+CREATE VIEW [EPC_GEO_POP] AS
+SELECT * 
+FROM [dbo].[EnergyPerformanceCertificate] as EPC
+LEFT JOIN [dbo].[uk_geographies] as GEO
+ON EPC.POSTCODE = GEO.pcds
+right JOIN [dbo].[PopEstimatesLSOA] as POP  -- What join should the be?
+ON GEO.[lsoa11cd] = POP.[LSOA Code]
+WHERE Attribute='All Ages'
